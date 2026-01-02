@@ -2,146 +2,165 @@
 import streamlit as st
 import pandas as pd
 import random
-import plotly.express as px
 
-# تنظیمات استراتژیک صفحه
-st.set_page_config(page_title="سامانه جامع هوشمند بهار ۱", layout="wide")
+# ------------------ تنظیمات صفحه ------------------
+st.set_page_config(
+    page_title="داشبورد مدیریتی بهار ۱",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# طراحی رابط کاربری (UI) پیشرفته با CSS
+# ------------------ CSS ------------------
 st.markdown("""
-    <style>
-    .main { background: #f4f7f6; }
-    .stMetric { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .shift-card { padding: 10px; border-radius: 8px; margin: 5px; color: white; font-weight: bold; text-align: center; }
-    .morn { background: #FFD700; color: #333; }
-    .eve { background: #FF8C00; }
-    .night { background: #2F4F4F; }
-    .stButton>button { border-radius: 10px; height: 3em; background: #1e3c72; color: white; border: none; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.main { background-color: #f8f9fa; }
+.stMetric { background-color: #ffffff; padding: 15px; border-radius: 15px;
+box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 5px solid #1e3c72; }
+.request-card { background-color: #fff3cd; padding: 10px;
+border-radius: 10px; border-right: 5px solid #ffc107; margin-bottom: 5px; }
+</style>
+""", unsafe_allow_html=True)
 
-# --- مدیریت حافظه پایدار (Session State) ---
+# ------------------ Session State ------------------
+if "login" not in st.session_state: st.session_state.login = False
 if "staff" not in st.session_state: st.session_state.staff = {}
-if "wards" not in st.session_state: st.session_state.wards = {
-    "تریاژ": {"morn": 2, "eve": 2, "night": 2, "color": "#1e3c72"},
-    "سرم تراپی": {"morn": 1, "eve": 1, "night": 2, "color": "#2a5298"}
-}
+if "wards" not in st.session_state:
+    st.session_state.wards = {
+        "تریاژ": {"morn": 2, "eve": 2, "night": 2},
+        "سرم تراپی": {"morn": 1, "eve": 1, "night": 2},
+    }
 if "final_df" not in st.session_state: st.session_state.final_df = None
 
-# --- سایدبار برای آمار سریع ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2764/2764442.png", width=80)
-    st.title("پنل نظارتی")
-    if st.session_state.staff:
-        st.write("📊 وضعیت عدالت در شیفت:")
-        names = list(st.session_state.staff.keys())
-        shifts = [v['total_shifts'] for v in st.session_state.staff.values()]
-        fig = px.bar(x=names, y=shifts, labels={'x':'پرسنل', 'y':'تعداد شیفت'}, height=200)
-        st.plotly_chart(fig, use_container_width=True)
 
-# --- بدنه اصلی برنامه ---
-st.title("🏥 داشبورد عملیاتی بیمارستان (Bahar Enterprise)")
+# ================== موتور چیدمان ==================
+def generate_schedule(staff, wards, days):
+    for s in staff.values():
+        s["total_shifts"] = 0
 
-tabs = st.tabs(["🏛️ مرکز مدیریت", "🗓️ تقویم مرخصی و درخواست", "⚙️ مهندسی بخش‌ها", "💎 تولید هوشمند برنامه"])
+    last_night_day = {}
+    rows = []
 
-with tabs[0]:
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.subheader("👥 ثبت و ویرایش پرسنل")
-        with st.form("staff_form"):
-            c1, c2 = st.columns(2)
-            n = c1.text_input("نام و نام خانوادگی")
-            g = c2.selectbox("جنسیت", ["خانم", "آقا"])
-            if st.form_submit_button("افزودن به دیتابیس"):
-                if n:
-                    st.session_state.staff[n] = {"gender": g, "offs": [], "day_prefs": {}, "total_shifts": 0}
-                    st.rerun()
-        
+    for d in range(1, days + 1):
+        day_row = {"تاریخ": f"روز {d}"}
+        used_today = set()
+
+        for ward, req in wards.items():
+            for shift, key in [("صبح", "morn"), ("عصر", "eve"), ("شب", "night")]:
+                needed = req[key]
+                chosen = []
+
+                for _ in range(needed):
+                    eligible = []
+                    for name, data in staff.items():
+                        if name in used_today:
+                            continue
+                        if d in data["offs"]:
+                            continue
+                        if shift in data["day_prefs"].get(d, []):
+                            continue
+                        if shift == "شب" and d - last_night_day.get(name, 0) < 2:
+                            continue
+                        eligible.append(name)
+
+                    if not eligible:
+                        chosen.append("⚠️ کمبود")
+                        continue
+
+                    eligible.sort(key=lambda x: staff[x]["total_shifts"])
+                    pick = eligible[0]
+
+                    gender = "خ" if staff[pick]["gender"] == "خانم" else "آ"
+                    chosen.append(f"{pick} ({gender})")
+
+                    staff[pick]["total_shifts"] += 1
+                    used_today.add(pick)
+                    if shift == "شب":
+                        last_night_day[pick] = d
+
+                day_row[f"{ward}-{shift}"] = " / ".join(chosen)
+
+        rows.append(day_row)
+
+    return pd.DataFrame(rows)
+
+
+# ================== ورود ==================
+if not st.session_state.login:
+    st.title("🏥 پنل مدیریت بیمارستان")
+    u = st.text_input("نام کاربری")
+    p = st.text_input("رمز عبور", type="password")
+    if st.button("ورود"):
+        if u == "admin" and p == "1234":
+            st.session_state.login = True
+            st.rerun()
+else:
+    st.title("🏥 سامانه برنامه‌ریزی هوشمند بهار")
+
+    if st.button("خروج"):
+        st.session_state.login = False
+        st.rerun()
+
+    # ---------- Metrics ----------
+    c1, c2, c3 = st.columns(3)
+    c1.metric("کل پرسنل", len(st.session_state.staff))
+    c2.metric("بخش‌ها", len(st.session_state.wards))
+    c3.metric("درخواست‌ها", sum(len(v["day_prefs"]) for v in st.session_state.staff.values()))
+
+    # ---------- Tabs ----------
+    t1, t2, t3, t4 = st.tabs([
+        "👥 پرسنل",
+        "🏖️ مرخصی",
+        "⚙️ بخش‌ها",
+        "📅 تولید برنامه"
+    ])
+
+    with t1:
+        n = st.text_input("نام پرسنل")
+        g = st.selectbox("جنسیت", ["خانم", "آقا"])
+        if st.button("افزودن"):
+            st.session_state.staff[n] = {
+                "gender": g,
+                "offs": [],
+                "day_prefs": {},
+                "total_shifts": 0
+            }
+            st.success("ثبت شد")
+
         if st.session_state.staff:
-            df_view = pd.DataFrame([{"نام": k, "جنسیت": v["gender"], "مجموع شیفت": v["total_shifts"]} for k, v in st.session_state.staff.items()])
-            st.dataframe(df_view, use_container_width=True)
+            df = pd.DataFrame([
+                {"نام": k, "جنسیت": v["gender"], "شیفت": v["total_shifts"]}
+                for k, v in st.session_state.staff.items()
+            ])
+            st.dataframe(df, use_container_width=True)
 
-    with col2:
-        st.subheader("⚠️ حذف و پاکسازی")
-        del_target = st.selectbox("انتخاب فرد:", [""] + list(st.session_state.staff.keys()))
-        if st.button("🗑️ حذف از سیستم"):
-            if del_target: del st.session_state.staff[del_target]; st.rerun()
-        st.divider()
-        if st.button("🚨 ریست کامل ماهانه"):
-            st.session_state.staff = {}; st.session_state.final_df = None; st.rerun()
+    with t2:
+        if st.session_state.staff:
+            p = st.selectbox("پرسنل", list(st.session_state.staff))
+            days = st.multiselect("روزهای مرخصی", range(1, 32))
+            if st.button("ذخیره"):
+                st.session_state.staff[p]["offs"] = days
 
-with tabs[1]:
-    st.subheader("📅 مدیریت تقویم درخواست‌ها")
-    if st.session_state.staff:
-        p_sel = st.selectbox("انتخاب همکار:", list(st.session_state.staff.keys()))
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.info("مرخصی کامل (Full Day Off)")
-            current_offs = st.multiselect("روزهای مرخصی:", list(range(1, 32)), default=st.session_state.staff[p_sel]["offs"])
-            if st.button("ذخیره مرخصی"):
-                st.session_state.staff[p_sel]["offs"] = current_offs
-                st.toast("مرخصی‌ها ثبت شد")
-        with col_b:
-            st.info("محدودیت شیفت (Shift Constraint)")
-            day_target = st.selectbox("روز خاص:", list(range(1, 32)))
-            limit = st.multiselect("نباید باشد در:", ["صبح", "عصر", "شب"])
-            if st.button("ثبت محدودیت"):
-                st.session_state.staff[p_sel]["day_prefs"][day_target] = limit
-                st.toast("محدودیت روزانه اعمال شد")
-    else: st.warning("لیست پرسنل خالی است.")
+    with t3:
+        for w, cfg in st.session_state.wards.items():
+            st.subheader(w)
+            cfg["morn"] = st.number_input("صبح", 0, 10, cfg["morn"], key=w+"m")
+            cfg["eve"] = st.number_input("عصر", 0, 10, cfg["eve"], key=w+"e")
+            cfg["night"] = st.number_input("شب", 0, 10, cfg["night"], key=w+"n")
 
-with tabs[2]:
-    st.subheader("🏢 مهندسی منابع انسانی بخش‌ها")
-    for w_name in list(st.session_state.wards.keys()):
-        with st.expander(f"⚙️ پیکربندی {w_name}"):
-            c1, c2, c3 = st.columns(3)
-            st.session_state.wards[w_name]["morn"] = c1.number_input(f"نیاز صبح {w_name}", 0, 10, st.session_state.wards[w_name]["morn"], key=f"m_{w_name}")
-            st.session_state.wards[w_name]["eve"] = c2.number_input(f"نیاز عصر {w_name}", 0, 10, st.session_state.wards[w_name]["eve"], key=f"e_{w_name}")
-            st.session_state.wards[w_name]["night"] = c3.number_input(f"نیاز شب {w_name}", 0, 10, st.session_state.wards[w_name]["night"], key=f"n_{w_name}")
+    with t4:
+        days = st.number_input("تعداد روز", 1, 31, 30)
+        if st.button("🚀 تولید برنامه"):
+            st.session_state.final_df = generate_schedule(
+                st.session_state.staff,
+                st.session_state.wards,
+                days
+            )
+            st.balloons()
 
-with tabs[3]:
-    st.subheader("💎 هوش مصنوعی چیدمان")
-    days_count = st.number_input("بازه برنامه (روز):", 1, 31, 30)
-    
-    if st.button("🚀 اجرای چیدمان بهینه و عادلانه"):
-        # الگوریتم عدالتی: صفر کردن آمار
-        for s in st.session_state.staff: st.session_state.staff[s]["total_shifts"] = 0
-        
-        all_days = []
-        last_night_shift = []
-        
-        for d in range(1, days_count + 1):
-            # اولویت‌دهی به کسانی که شیفت کمتری داشته‌اند (الگوریتم عادلانه)
-            sorted_staff = sorted(st.session_state.staff.items(), key=lambda x: x[1]['total_shifts'])
-            avail = [n for n, v in sorted_staff if d not in v["offs"] and n not in last_night_shift]
-            
-            day_data = {"تاریخ": f"روز {d}"}
-            today_nights = []
-
-            for ward, req in st.session_state.wards.items():
-                for s_type in ["صبح", "عصر", "شب"]:
-                    needed = req[{"صبح": "morn", "عصر": "eve", "شب": "night"}[s_type]]
-                    chosen_list = []
-                    for _ in range(needed):
-                        eligible = [a for a in avail if s_type not in st.session_state.staff[a]["day_prefs"].get(d, [])]
-                        if eligible:
-                            pick = eligible[0]
-                            sex = "خ" if st.session_state.staff[pick]['gender'] == "خانم" else "آ"
-                            chosen_list.append(f"{pick} ({sex})")
-                            avail.remove(pick)
-                            st.session_state.staff[pick]["total_shifts"] += 1
-                            if s_type == "شب": today_nights.append(pick)
-                        else: chosen_list.append("⚠️ کمبود")
-                    day_data[f"{ward}-{s_type}"] = " / ".join(chosen_list)
-            
-            all_days.append(day_data)
-            last_night_shift = today_nights
-
-        st.session_state.final_df = pd.DataFrame(all_days)
-        st.success("برنامه با رعایت سقف عدالت و محدودیت‌ها تولید شد!")
-
-    if st.session_state.final_df is not None:
-        st.data_editor(st.session_state.final_df, use_container_width=True)
-        # دکمه دانلود اکسل با یونیکد مناسب ایران
-        csv = st.session_state.final_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 دریافت فایل چاپی (Excel)", csv, "Bahar_Schedule.csv", "text/csv")
+        if st.session_state.final_df is not None:
+            st.dataframe(st.session_state.final_df, use_container_width=True)
+            st.download_button(
+                "دانلود CSV",
+                st.session_state.final_df.to_csv(index=False).encode("utf-8-sig"),
+                "schedule.csv"
+            )
