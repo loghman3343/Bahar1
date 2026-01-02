@@ -3,175 +3,150 @@ import streamlit as st
 import pandas as pd
 import random
 
-# تنظیمات اصلی صفحه به صورت عریض (Wide Mode)
-st.set_page_config(page_title="مدیریت بهار ۱", layout="wide", initial_sidebar_state="collapsed")
+# تنظیمات ظاهری سایت
+st.set_page_config(page_title="سامانه جامع بهار ۱", layout="wide")
 
-# تزریق استایل CSS برای تبدیل محیط ساده به یک سایت حرفه‌ای
+# طراحی گرافیکی اختصاصی (CSS) برای شبیه‌سازی سیستم‌های بیمارستانی
 st.markdown("""
 <style>
-    /* استایل کلی پس‌زمینه */
-    .stApp { background-color: #f0f2f6; }
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn&display=swap');
+    * { font-family: 'Vazirmatn', sans-serif; direction: rtl; }
+    .main { background-color: #f4f6f9; }
     
-    /* استایل کارت‌ها */
-    .main-card {
-        background-color: #ffffff;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        border-top: 5px solid #1e3c72;
-    }
+    /* استایل منوی کناری */
+    [data-testid="stSidebar"] { background-color: #232e3c !important; color: white; }
     
-    /* استایل هدرها */
-    h1, h2, h3 { color: #1e3c72; font-family: 'Tahoma'; }
+    /* کارت‌های داشبورد رنگی */
+    .card { padding: 20px; border-radius: 10px; color: white; margin-bottom: 10px; text-align: center; font-weight: bold; }
+    .bg-red { background-color: #e74c3c; }
+    .bg-green { background-color: #27ae60; }
+    .bg-orange { background-color: #f39c12; }
+    .bg-blue { background-color: #2980b9; }
     
-    /* دکمه‌های اصلی */
-    .stButton>button {
-        width: 100%;
-        border-radius: 10px;
-        height: 3.5em;
-        background-image: linear-gradient(to right, #1e3c72, #2a5298);
-        color: white;
-        font-weight: bold;
-        border: none;
-        transition: 0.3s;
-    }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(30,60,114,0.3); }
-    
-    /* استایل ورودی‌ها */
-    .stNumberInput, .stTextInput { border-radius: 10px; }
-    
-    /* جداکننده بخش‌ها */
-    .section-header {
-        background-color: #1e3c72;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        margin: 20px 0;
-    }
+    /* استایل تنظیمات بخش */
+    .ward-box { background: white; padding: 20px; border-radius: 15px; border-right: 10px solid #2980b9; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .shift-tag { padding: 5px 15px; border-radius: 20px; color: white; font-size: 14px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- مدیریت حافظه (Session State) ---
+# --- مدیریت حافظه موقت ---
 if "wards" not in st.session_state: st.session_state.wards = {}
 if "staff" not in st.session_state: st.session_state.staff = {}
 
-# ==================== صفحه اصلی سایت ====================
-st.markdown("<h1 style='text-align: center;'>🏥 پنل هوشمند برنامه‌ریزی بیمارستان (بهار ۱)</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>مدیریت یکپارچه بخش‌ها، پرسنل و شیفت‌بندی جنسیتی</p>", unsafe_allow_html=True)
+# ==================== منوی کناری (Sidebar) ====================
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center;'>🏥 پنل MIS بهار</h2>", unsafe_allow_html=True)
+    st.divider()
+    page = st.radio("🏠 منوی دسترسی سریع", 
+                    ["📊 داشبورد عملکرد", "🏢 تعریف بخش و ظرفیت", "👥 لیست پرسنل", "📋 تولید برنامه نهایی"])
+    st.divider()
+    st.write("📍 واحد: مدیریت فناوری اطلاعات")
 
-# --- قدم اول: تعریف ساختار بخش‌ها ---
-st.markdown("<div class='section-header'>Step 1: تنظیمات بخش‌ها و نیاز جنسیتی</div>", unsafe_allow_html=True)
+# ==================== ۱. داشبورد (شبیه عکسی که فرستادی) ====================
+if page == "📊 داشبورد عملکرد":
+    st.title("📊 داشبورد نظارتی")
+    
+    # کارت‌های رنگی شبیه به تصویر ارسالی شما
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: st.markdown('<div class="card bg-red">۴۴:۳۷<br>تأخیر کل</div>', unsafe_allow_html=True)
+    with c2: st.markdown('<div class="card bg-orange">۱۱:۰۵<br>تعجیل خروج</div>', unsafe_allow_html=True)
+    with c3: st.markdown('<div class="card bg-green">۱۶۸ روز<br>حضور ماهانه</div>', unsafe_allow_html=True)
+    with c4: st.markdown('<div class="card bg-blue">۴۹:۵۳<br>اضافه کار</div>', unsafe_allow_html=True)
 
-with st.container():
-    col_w1, col_w2 = st.columns([3, 1])
-    with col_w1:
-        new_ward = st.text_input("➕ نام بخش جدید را وارد کنید (مثلاً: ICU، اورژانس، جراحی):", placeholder="نام بخش...")
-    with col_w2:
-        st.write(" ")
-        st.write(" ")
-        if st.button("ثبت بخش جدید"):
-            if new_ward and new_ward not in st.session_state.wards:
+    st.subheader("📆 نمای وضعیت حضور روزانه")
+    days_mock = [random.choice(["✅", "❌", "🌙", "🏥"]) for _ in range(30)]
+    cols = st.columns(15)
+    for i, icon in enumerate(days_mock):
+        cols[i % 15].metric(f"روز {i+1}", icon)
+
+# ==================== ۲. تنظیمات بخش (دقیقاً طبق خواسته شما) ====================
+elif page == "🏢 تعریف بخش و ظرفیت":
+    st.title("🏢 مدیریت بخش‌ها و نیاز جنسیتی")
+    
+    with st.container():
+        cw1, cw2 = st.columns([3, 1])
+        new_ward = cw1.text_input("نام بخش جدید:", placeholder="مثلاً: اورژانس")
+        if cw2.button("➕ ثبت بخش جدید"):
+            if new_ward:
                 st.session_state.wards[new_ward] = {
-                    "morning": {"f": 0, "m": 0},
-                    "evening": {"f": 0, "m": 0},
-                    "night": {"f": 0, "m": 0}
+                    "morn": {"f": 0, "m": 0}, "eve": {"f": 0, "m": 0}, "night": {"f": 0, "m": 0}
                 }
                 st.rerun()
 
-# نمایش کارت‌های تنظیمات برای هر بخش به صورت شبکه‌ای
-if st.session_state.wards:
-    for w_name, shifts in list(st.session_state.wards.items()):
-        st.markdown(f"<div class='main-card'>", unsafe_allow_html=True)
-        c_head, c_del = st.columns([5, 1])
-        c_head.subheader(f"📍 پیکربندی بخش: {w_name}")
-        if c_del.button("❌ حذف بخش", key=f"del_{w_name}"):
-            del st.session_state.wards[w_name]
+    st.divider()
+
+    for w, cfg in list(st.session_state.wards.items()):
+        st.markdown(f"<div class='ward-box'>", unsafe_allow_html=True)
+        h1, h2 = st.columns([5, 1])
+        h1.subheader(f"📍 تنظیمات ظرفیت: {w}")
+        if h2.button("🗑️ حذف", key=f"d_{w}"):
+            del st.session_state.wards[w]
             st.rerun()
 
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("<p class='shift-label'>☀️ <b>شیفت صبح</b></p>", unsafe_allow_html=True)
-            shifts["morning"]["f"] = st.number_input(f"تعداد خانم (صبح)", 0, 10, key=f"mf_{w_name}")
-            shifts["morning"]["m"] = st.number_input(f"تعداد آقا (صبح)", 0, 10, key=f"mm_{w_name}")
-        
-        with col2:
-            st.markdown("<p class='shift-label'>🌆 <b>شیفت عصر</b></p>", unsafe_allow_html=True)
-            shifts["evening"]["f"] = st.number_input(f"تعداد خانم (عصر)", 0, 10, key=f"ef_{w_name}")
-            shifts["evening"]["m"] = st.number_input(f"تعداد آقا (عصر)", 0, 10, key=f"em_{w_name}")
-            
-        with col3:
-            st.markdown("<p class='shift-label'>🌙 <b>شیفت شب</b></p>", unsafe_allow_html=True)
-            shifts["night"]["f"] = st.number_input(f"تعداد خانم (شب)", 0, 10, key=f"nf_{w_name}")
-            shifts["night"]["m"] = st.number_input(f"تعداد آقا (شب)", 0, 10, key=f"nm_{w_name}")
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            st.markdown("<span class='shift-tag' style='background:#f1c40f'>☀️ صبح</span>", unsafe_allow_html=True)
+            cfg["morn"]["f"] = st.number_input(f"تعداد خانم (صبح)-{w}", 0, 15, cfg["morn"]["f"])
+            cfg["morn"]["m"] = st.number_input(f"تعداد آقا (صبح)-{w}", 0, 15, cfg["morn"]["m"])
+        with s2:
+            st.markdown("<span class='shift-tag' style='background:#2ecc71'>🌆 عصر</span>", unsafe_allow_html=True)
+            cfg["eve"]["f"] = st.number_input(f"تعداد خانم (عصر)-{w}", 0, 15, cfg["eve"]["f"])
+            cfg["eve"]["m"] = st.number_input(f"تعداد آقا (عصر)-{w}", 0, 15, cfg["eve"]["m"])
+        with s3:
+            st.markdown("<span class='shift-tag' style='background:#2c3e50'>🌙 شب</span>", unsafe_allow_html=True)
+            cfg["night"]["f"] = st.number_input(f"تعداد خانم (شب)-{w}", 0, 15, cfg["night"]["f"])
+            cfg["night"]["m"] = st.number_input(f"تعداد آقا (شب)-{w}", 0, 15, cfg["night"]["m"])
         st.markdown("</div>", unsafe_allow_html=True)
 
-# --- قدم دوم: مدیریت پرسنل ---
-st.markdown("<div class='section-header'>Step 2: ورود اطلاعات همکاران</div>", unsafe_allow_html=True)
-with st.container():
-    c_p1, c_p2, c_p3 = st.columns([3, 2, 1])
-    with c_p1: p_name = st.text_input("نام و نام خانوادگی همکار:")
-    with c_p2: p_gen = st.selectbox("جنسیت:", ["خانم", "آقا"])
-    with c_p3:
-        st.write(" ")
-        st.write(" ")
-        if st.button("ثبت همکار"):
-            if p_name:
-                st.session_state.staff[p_name] = {"gender": p_gen, "shifts": 0}
-                st.rerun()
+# ==================== ۳. مدیریت پرسنل ====================
+elif page == "👥 لیست پرسنل":
+    st.title("👥 مدیریت بانک اطلاعاتی پرسنل")
+    with st.form("staff_form"):
+        c1, c2, c3 = st.columns([3, 2, 1])
+        name = c1.text_input("نام و نام خانوادگی:")
+        gen = c2.selectbox("جنسیت:", ["خانم", "آقا"])
+        if c3.form_submit_button("ثبت عضو"):
+            if name: st.session_state.staff[name] = {"gen": gen, "shifts": 0}
+            st.rerun()
 
-if st.session_state.staff:
-    with st.expander("👥 مشاهده لیست پرسنل ثبت شده"):
-        df_staff = pd.DataFrame([{"نام": k, "جنسیت": v["gender"]} for k, v in st.session_state.staff.items()])
-        st.dataframe(df_staff, use_container_width=True)
+    if st.session_state.staff:
+        st.table(pd.DataFrame([{"نام": k, "جنسیت": v["gen"]} for k, v in st.session_state.staff.items()]))
 
-# --- قدم سوم: تولید خروجی نهایی ---
-st.markdown("<div class='section-header'>Step 3: تولید و دریافت برنامه</div>", unsafe_allow_html=True)
-col_gen1, col_gen2 = st.columns([1, 2])
-with col_gen1:
+# ==================== ۴. تولید برنامه (شبیه عکس دوم شما) ====================
+elif page == "📋 تولید برنامه نهایی":
+    st.title("📋 برنامه عملیاتی بخش‌ها")
     days = st.number_input("تعداد روزهای ماه:", 1, 31, 30)
-    generate = st.button("🚀 تولید برنامه هوشمند")
-
-if generate:
-    if not st.session_state.wards or not st.session_state.staff:
-        st.error("❌ خطا: ابتدا بخش‌ها و پرسنل را وارد کنید.")
-    else:
-        # صفر کردن آمار شیفت‌ها
-        for s in st.session_state.staff.values(): s["shifts"] = 0
-        
-        for w_name, w_req in st.session_state.wards.items():
-            st.markdown(f"<div class='main-card'><h3>📋 خروجی برنامه بخش: {w_name}</h3>", unsafe_allow_html=True)
-            ward_data = []
-            last_night_staff = []
-
-            for d in range(1, days + 1):
-                row = {"تاریخ": f"روز {d}"}
-                # افراد در دسترس (امروز مرخصی نباشند و دیشب شبکار نباشند - ساده شده برای این نسخه)
-                avail = list(st.session_state.staff.keys())
-                random.shuffle(avail)
-                
-                for s_name, s_label in [("morning", "صبح"), ("evening", "عصر"), ("night", "شب")]:
-                    f_needed = w_req[s_name]["f"]
-                    m_needed = w_req[s_name]["m"]
-                    chosen = []
-                    
-                    # انتخاب خانم‌ها
-                    f_pool = [n for n in avail if st.session_state.staff[n]["gender"] == "خانم"]
-                    for _ in range(f_needed):
-                        if f_pool:
-                            p = f_pool.pop(0); chosen.append(p); avail.remove(p)
-                    
-                    # انتخاب آقایان
-                    m_pool = [n for n in avail if st.session_state.staff[n]["gender"] == "آقا"]
-                    for _ in range(m_needed):
-                        if m_pool:
-                            p = m_pool.pop(0); chosen.append(p); avail.remove(p)
-                    
-                    row[s_label] = " / ".join(chosen) if chosen else "---"
-                ward_data.append(row)
+    
+    if st.button("🚀 شروع پردازش و چیدمان هوشمند"):
+        if not st.session_state.wards or not st.session_state.staff:
+            st.error("❌ ابتدا بخش‌ها و پرسنل را تعریف کنید.")
+        else:
+            for s in st.session_state.staff.values(): s["shifts"] = 0
             
-            df_final = pd.DataFrame(ward_data)
-            st.dataframe(df_final, use_container_width=True)
-            st.download_button(f"📥 دانلود اکسل بخش {w_name}", df_final.to_csv(index=False).encode('utf-8-sig'), f"Plan_{w_name}.csv")
-            st.markdown("</div>", unsafe_allow_html=True)
+            for w_name, w_cfg in st.session_state.wards.items():
+                st.subheader(f"✅ برنامه بخش: {w_name}")
+                plan = []
+                for d in range(1, days + 1):
+                    row = {"روز": d}
+                    avail = list(st.session_state.staff.keys())
+                    random.shuffle(avail)
+                    
+                    for sk, sl in [("morn", "صبح"), ("eve", "عصر"), ("night", "شب")]:
+                        f_req, m_req = w_cfg[sk]["f"], w_cfg[sk]["m"]
+                        selected = []
+                        # انتخاب خانم‌ها
+                        f_pool = [n for n in avail if st.session_state.staff[n]["gen"] == "خانم"]
+                        for _ in range(f_req):
+                            if f_pool: p = f_pool.pop(0); selected.append(p); avail.remove(p)
+                        # انتخاب آقایان
+                        m_pool = [n for n in avail if st.session_state.staff[n]["gen"] == "آقا"]
+                        for _ in range(m_req):
+                            if m_pool: p = m_pool.pop(0); selected.append(p); avail.remove(p)
+                        
+                        row[sl] = " / ".join(selected) if selected else "---"
+                    plan.append(row)
+                
+                df_res = pd.DataFrame(plan)
+                st.dataframe(df_res, use_container_width=True)
+                st.download_button(f"📥 دریافت اکسل {w_name}", df_res.to_csv(index=False).encode('utf-8-sig'), f"{w_name}.csv")
+
