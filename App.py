@@ -5,10 +5,10 @@ import random
 
 st.set_page_config(page_title="مدیریت پیشرفته بهار ۱", layout="wide")
 
-# استایل اختصاصی برای دکمه‌ها
-st.markdown("""<style> .stButton>button {width:100%; border-radius:12px; height:3em; background-color:#1e3c72; color:white; font-weight:bold;} </style>""", unsafe_allow_html=True)
+# استایل اختصاصی برای دکمه‌ها و رابط کاربری
+st.markdown("""<style> .stButton>button {width:100%; border-radius:12px; height:3em; background-color:#1e3c72; color:white; font-weight:bold;} .stExpander {border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px;} </style>""", unsafe_allow_html=True)
 
-# --- مدیریت حافظه برنامه برای جلوگیری از پاک شدن داده‌ها ---
+# --- مدیریت حافظه (Session State) ---
 if "login" not in st.session_state: st.session_state.login = False
 if "staff" not in st.session_state: st.session_state.staff = {} 
 if "wards" not in st.session_state: st.session_state.wards = {
@@ -17,7 +17,6 @@ if "wards" not in st.session_state: st.session_state.wards = {
 }
 if "final_df" not in st.session_state: st.session_state.final_df = None
 
-# --- صفحه ورود ---
 if not st.session_state.login:
     st.title("🔐 ورود به سیستم")
     u = st.text_input("نام کاربری")
@@ -26,80 +25,91 @@ if not st.session_state.login:
         if u == "admin" and p == "1234":
             st.session_state.login = True
             st.rerun()
-        else: st.error("نام کاربری یا رمز عبور اشتباه است")
-
-# --- پنل اصلی مدیریت ---
 else:
-    st.title("🏥 سامانه بیمارستانی بهار ۱")
-    t1, t2, t3, t4, t5 = st.tabs(["👥 پرسنل و آمار", "🏖️ ثبت مرخصی", "💡 ثبت درخواست", "🏢 تنظیمات بخش‌ها", "🚀 تولید برنامه"])
+    st.title("🏥 سامانه بیمارستانی هوشمند بهار ۱")
+    t1, t2, t3, t4, t5 = st.tabs(["👥 مدیریت پرسنل", "🏖️ ثبت مرخصی", "💡 محدودیت روزانه", "🏢 تنظیمات بخش", "🚀 تولید برنامه"])
 
-    # تب ۱: پرسنل و آمار
+    # تب ۱: مدیریت پرسنل و آمار
     with t1:
-        st.subheader("تعریف پرسنل")
+        st.subheader("➕ تعریف نیرو")
         c1, c2 = st.columns(2)
-        name = c1.text_input("نام:")
+        name = c1.text_input("نام و نام خانوادگی:")
         gender = c2.selectbox("جنسیت:", ["خانم", "آقا"])
-        if st.button("➕ ثبت فرد"):
+        if st.button("ثبت در سیستم"):
             if name and name not in st.session_state.staff:
-                st.session_state.staff[name] = {"gender": gender, "offs": [], "prefs": [], "total_shifts": 0}
-                st.success(f"{name} اضافه شد")
+                st.session_state.staff[name] = {"gender": gender, "offs": [], "day_prefs": {}, "total_shifts": 0}
+                st.success(f"«{name}» اضافه شد.")
                 st.rerun()
         
         if st.session_state.staff:
-            st.subheader("📊 آمار فعالیت")
-            stats_list = [{"نام": k, "جنسیت": v["gender"], "تعداد شیفت": v.get("total_shifts", 0)} for k, v in st.session_state.staff.items()]
+            st.subheader("📊 آمار فعالیت پرسنل")
+            stats_list = [{"نام": k, "جنسیت": v["gender"], "شیفت‌های ماه": v.get("total_shifts", 0)} for k, v in st.session_state.staff.items()]
             st.table(pd.DataFrame(stats_list))
-            
-            del_name = st.selectbox("انتخاب فرد برای حذف:", [""] + list(st.session_state.staff.keys()))
-            if st.button("🗑️ حذف پرسنل"):
-                if del_name in st.session_state.staff:
-                    del st.session_state.staff[del_name]
+
+            with st.expander("🛠️ مدیریت لیست (حذف یا پاک‌سازی)"):
+                del_name = st.selectbox("حذف تکی فرد:", [""] + list(st.session_state.staff.keys()))
+                if st.button("🗑️ حذف فرد انتخاب شده"):
+                    if del_name in st.session_state.staff:
+                        del st.session_state.staff[del_name]
+                        st.rerun()
+                
+                st.divider()
+                if st.button("🚨 پاک کردن کل اطلاعات (شروع ماه جدید)"):
+                    st.session_state.staff = {}
+                    st.session_state.final_df = None
+                    st.warning("تمام اطلاعات پرسنل، مرخصی‌ها و برنامه‌ها پاک شد.")
                     st.rerun()
 
-    # تب ۲: ثبت مرخصی
+    # تب ۲: مرخصی (انتخاب چندتایی روزها)
     with t2:
-        st.subheader("🏖️ ثبت روزهای مرخصی")
+        st.subheader("🏖️ تعیین روزهای مرخصی")
         if st.session_state.staff:
-            p_off = st.selectbox("نام پرسنل:", list(st.session_state.staff.keys()), key="p_off_box")
-            d_off = st.number_input("روز ماه (۱-۳۱):", 1, 31, key="d_off_box")
-            if st.button("🚫 ثبت مرخصی"):
-                if d_off not in st.session_state.staff[p_off]["offs"]:
-                    st.session_state.staff[p_off]["offs"].append(d_off)
-                    st.success(f"مرخصی {p_off} ثبت شد.")
-            st.write("لیست مرخصی‌های این فرد:", st.session_state.staff[p_off]["offs"])
-        else: st.info("لیست پرسنل خالی است.")
+            p_off = st.selectbox("انتخاب فرد:", list(st.session_state.staff.keys()), key="p_off")
+            current_offs = st.session_state.staff[p_off]["offs"]
+            days_off = st.multiselect("روزهای عدم حضور (۱-۳۱):", list(range(1, 32)), default=current_offs)
+            if st.button("تایید مرخصی‌ها"):
+                st.session_state.staff[p_off]["offs"] = days_off
+                st.success(f"مرخصی‌های {p_off} ثبت شد.")
+        else: st.info("ابتدا پرسنل را تعریف کنید.")
 
-    # تب ۳: درخواست‌های خاص
+    # تب ۳: محدودیت روزانه (انتخاب دقیق روز و شیفت)
     with t3:
-        st.subheader("💡 محدودیت شیفت (مثلاً عصر نباشم)")
+        st.subheader("💡 محدودیت شیفت در روز خاص")
         if st.session_state.staff:
-            p_pref = st.selectbox("نام پرسنل:", list(st.session_state.staff.keys()), key="p_pref_box")
-            prefs = st.multiselect("در این شیفت‌ها نمی‌توانم باشم:", ["صبح", "عصر", "شب"])
-            if st.button("💾 ثبت درخواست"):
-                st.session_state.staff[p_pref]["prefs"] = prefs
-                st.success("درخواست با موفقیت ثبت شد.")
-        else: st.info("پرسنلی تعریف نشده است.")
+            p_pref = st.selectbox("انتخاب فرد:", list(st.session_state.staff.keys()), key="p_pref")
+            target_day = st.selectbox("انتخاب روز مورد نظر:", list(range(1, 32)))
+            no_shift = st.multiselect(f"در روز {target_day}، {p_pref} در کدام شیفت نباشد؟", ["صبح", "عصر", "شب"])
+            
+            if st.button("ثبت این محدودیت"):
+                st.session_state.staff[p_pref]["day_prefs"][target_day] = no_shift
+                st.success(f"محدودیت اعمال شد.")
+            
+            if st.session_state.staff[p_pref]["day_prefs"]:
+                st.write("محدودیت‌های این فرد:", st.session_state.staff[p_pref]["day_prefs"])
+        else: st.info("لیست پرسنل خالی است.")
 
     # تب ۴: تنظیمات بخش‌ها
     with t4:
-        st.subheader("🏢 تنظیم ظرفیت هر بخش")
-        for w_name, config in st.session_state.wards.items():
-            with st.expander(f"تنظیمات {w_name}", expanded=True):
-                cc1, cc2, cc3 = st.columns(3)
-                st.session_state.wards[w_name]["morn"] = cc1.number_input(f"صبح", 0, 10, config["morn"], key=f"m_{w_name}")
-                st.session_state.wards[w_name]["eve"] = cc2.number_input(f"عصر", 0, 10, config["eve"], key=f"e_{w_name}")
-                st.session_state.wards[w_name]["night"] = cc3.number_input(f"شب", 0, 10, config["night"], key=f"n_{w_name}")
+        st.subheader("🏢 ظرفیت مورد نیاز بخش‌ها")
+        for w_name in list(st.session_state.wards.keys()):
+            with st.expander(f"⚙️ تنظیمات {w_name}", expanded=True):
+                c1, c2, c3 = st.columns(3)
+                st.session_state.wards[w_name]["morn"] = c1.number_input(f"صبح {w_name}", 0, 10, st.session_state.wards[w_name]["morn"], key=f"m_{w_name}")
+                st.session_state.wards[w_name]["eve"] = c2.number_input(f"عصر {w_name}", 0, 10, st.session_state.wards[w_name]["eve"], key=f"e_{w_name}")
+                st.session_state.wards[w_name]["night"] = c3.number_input(f"شب {w_name}", 0, 10, st.session_state.wards[w_name]["night"], key=f"n_{w_name}")
 
     # تب ۵: تولید و ویرایش نهایی
     with t5:
-        days = st.number_input("تعداد روزها:", 1, 31, 30)
-        if st.button("🔥 تولید برنامه هوشمند"):
+        month_days = st.number_input("تعداد روزهای ماه:", 1, 31, 30)
+        if st.button("🚀 تولید برنامه هوشمند"):
+            # صفر کردن آمار برای محاسبه جدید
             for s in st.session_state.staff: st.session_state.staff[s]["total_shifts"] = 0
             
-            last_night_shift = []
             all_schedules = []
-
-            for d in range(1, days + 1):
+            last_night_shift = []
+            
+            for d in range(1, month_days + 1):
+                # فیلتر: مرخصی نباشد و دیشب شب‌کار نباشد
                 available = [n for n in st.session_state.staff if d not in st.session_state.staff[n]["offs"] and n not in last_night_shift]
                 random.shuffle(available)
                 
@@ -109,18 +119,19 @@ else:
                 for ward, req in st.session_state.wards.items():
                     for s_type in ["صبح", "عصر", "شب"]:
                         needed = req[{"صبح": "morn", "عصر": "eve", "شب": "night"}[s_type]]
-                        chosen_list = []
+                        chosen_names = []
                         for _ in range(needed):
-                            eligible = [a for a in available if s_type not in st.session_state.staff[a]["prefs"]]
+                            # چک کردن محدودیت روزانه
+                            eligible = [a for a in available if s_type not in st.session_state.staff[a]["day_prefs"].get(d, [])]
                             if eligible:
-                                pick = eligible[0]
-                                sex = "خ" if st.session_state.staff[pick]['gender'] == "خانم" else "آ"
-                                chosen_list.append(f"{pick} ({sex})")
-                                available.remove(pick)
-                                st.session_state.staff[pick]["total_shifts"] += 1
-                                if s_type == "شب": current_night.append(pick)
-                            else: chosen_list.append("⚠️ کمبود")
-                        day_data[f"{ward}-{s_type}"] = " / ".join(chosen_list)
+                                p = eligible[0]
+                                sex = "خ" if st.session_state.staff[p]['gender'] == "خانم" else "آ"
+                                chosen_names.append(f"{p} ({sex})")
+                                available.remove(p)
+                                st.session_state.staff[p]["total_shifts"] += 1
+                                if s_type == "شب": current_night.append(p)
+                            else: chosen_names.append("⚠️ کمبود")
+                        day_data[f"{ward}-{s_type}"] = " / ".join(chosen_names)
                 
                 all_schedules.append(day_data)
                 last_night_shift = current_night
@@ -128,7 +139,6 @@ else:
             st.session_state.final_df = pd.DataFrame(all_schedules)
 
         if st.session_state.final_df is not None:
-            st.subheader("✍️ ویرایش و دانلود نهایی")
+            st.subheader("✍️ مشاهده و ویرایش برنامه")
             edited_df = st.data_editor(st.session_state.final_df, use_container_width=True)
-            csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("📥 دانلود اکسل برنامه", csv, "Bahar_Hospital_Plan.csv", "text/csv")
+            st.download_button("📥 دانلود اکسل برنامه نهایی", edited_df.to_csv(index=False).encode('utf-8-sig'), "Hospital_Plan.csv", "text/csv")
