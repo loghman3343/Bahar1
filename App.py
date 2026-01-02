@@ -3,11 +3,12 @@ import streamlit as st
 import pandas as pd
 import random
 
-st.set_page_config(page_title="مدیریت پیشرفته بیمارستان بهار ۱", layout="wide")
+st.set_page_config(page_title="مدیریت پیشرفته بهار ۱", layout="wide")
 
-# استایل اختصاصی برای موبایل
+# استایل اختصاصی برای دکمه‌ها
 st.markdown("""<style> .stButton>button {width:100%; border-radius:12px; height:3em; background-color:#1e3c72; color:white; font-weight:bold;} </style>""", unsafe_allow_html=True)
 
+# --- مدیریت حافظه برنامه برای جلوگیری از پاک شدن داده‌ها ---
 if "login" not in st.session_state: st.session_state.login = False
 if "staff" not in st.session_state: st.session_state.staff = {} 
 if "wards" not in st.session_state: st.session_state.wards = {
@@ -16,6 +17,7 @@ if "wards" not in st.session_state: st.session_state.wards = {
 }
 if "final_df" not in st.session_state: st.session_state.final_df = None
 
+# --- صفحه ورود ---
 if not st.session_state.login:
     st.title("🔐 ورود به سیستم")
     u = st.text_input("نام کاربری")
@@ -25,49 +27,62 @@ if not st.session_state.login:
             st.session_state.login = True
             st.rerun()
         else: st.error("نام کاربری یا رمز عبور اشتباه است")
-else:
-    st.title("🏥 سامانه بیمارستانی بهار ۱ (نسخه آماری)")
-    t1, t2, t3, t4 = st.tabs(["👥 پرسنل و آمار", "🏖️ مرخصی و درخواست", "🏢 تنظیمات بخش‌ها", "🚀 تولید و ویرایش برنامه"])
 
-    # تب ۱: پرسنل و نمایش آمار شیفت‌ها
+# --- پنل اصلی مدیریت ---
+else:
+    st.title("🏥 سامانه بیمارستانی بهار ۱")
+    t1, t2, t3, t4, t5 = st.tabs(["👥 پرسنل و آمار", "🏖️ ثبت مرخصی", "💡 ثبت درخواست", "🏢 تنظیمات بخش‌ها", "🚀 تولید برنامه"])
+
+    # تب ۱: پرسنل و آمار
     with t1:
         st.subheader("تعریف پرسنل")
         c1, c2 = st.columns(2)
         name = c1.text_input("نام:")
         gender = c2.selectbox("جنسیت:", ["خانم", "آقا"])
         if st.button("➕ ثبت فرد"):
-            if name:
+            if name and name not in st.session_state.staff:
                 st.session_state.staff[name] = {"gender": gender, "offs": [], "prefs": [], "total_shifts": 0}
                 st.success(f"{name} اضافه شد")
+                st.rerun()
         
         if st.session_state.staff:
-            st.subheader("📊 آمار فعالیت ماهانه")
-            stats_data = [{"نام": k, "جنسیت": v["gender"], "تعداد شیفت": v.get("total_shifts", 0)} for k, v in st.session_state.staff.items()]
-            st.table(pd.DataFrame(stats_data))
+            st.subheader("📊 آمار فعالیت")
+            stats_list = [{"نام": k, "جنسیت": v["gender"], "تعداد شیفت": v.get("total_shifts", 0)} for k, v in st.session_state.staff.items()]
+            st.table(pd.DataFrame(stats_list))
             
-            if st.button("🗑️ پاک کردن لیست پرسنل"):
-                st.session_state.staff = {}
-                st.rerun()
+            del_name = st.selectbox("انتخاب فرد برای حذف:", [""] + list(st.session_state.staff.keys()))
+            if st.button("🗑️ حذف پرسنل"):
+                if del_name in st.session_state.staff:
+                    del st.session_state.staff[del_name]
+                    st.rerun()
 
-    # تب ۲: مرخصی و اولویت‌ها
+    # تب ۲: ثبت مرخصی
     with t2:
+        st.subheader("🏖️ ثبت روزهای مرخصی")
         if st.session_state.staff:
-            p_sel = st.selectbox("انتخاب فرد:", list(st.session_state.staff.keys()))
-            c_off, c_pref = st.columns(2)
-            with c_off:
-                day_off = st.number_input("روز مرخصی:", 1, 31)
-                if st.button("ثبت مرخصی"):
-                    st.session_state.staff[p_sel]["offs"].append(day_off)
-                    st.success("مرخصی ثبت شد.")
-            with c_pref:
-                p_type = st.multiselect("محدودیت شیفت (نمی‌تواند باشد):", ["صبح", "عصر", "شب"])
-                if st.button("ثبت درخواست"):
-                    st.session_state.staff[p_sel]["prefs"] = p_type
-                    st.success("درخواست ثبت شد.")
+            p_off = st.selectbox("نام پرسنل:", list(st.session_state.staff.keys()), key="p_off_box")
+            d_off = st.number_input("روز ماه (۱-۳۱):", 1, 31, key="d_off_box")
+            if st.button("🚫 ثبت مرخصی"):
+                if d_off not in st.session_state.staff[p_off]["offs"]:
+                    st.session_state.staff[p_off]["offs"].append(d_off)
+                    st.success(f"مرخصی {p_off} ثبت شد.")
+            st.write("لیست مرخصی‌های این فرد:", st.session_state.staff[p_off]["offs"])
+        else: st.info("لیست پرسنل خالی است.")
 
-    # تب ۳: مدیریت بخش‌ها
+    # تب ۳: درخواست‌های خاص
     with t3:
-        st.subheader("تنظیم ظرفیت بخش‌ها")
+        st.subheader("💡 محدودیت شیفت (مثلاً عصر نباشم)")
+        if st.session_state.staff:
+            p_pref = st.selectbox("نام پرسنل:", list(st.session_state.staff.keys()), key="p_pref_box")
+            prefs = st.multiselect("در این شیفت‌ها نمی‌توانم باشم:", ["صبح", "عصر", "شب"])
+            if st.button("💾 ثبت درخواست"):
+                st.session_state.staff[p_pref]["prefs"] = prefs
+                st.success("درخواست با موفقیت ثبت شد.")
+        else: st.info("پرسنلی تعریف نشده است.")
+
+    # تب ۴: تنظیمات بخش‌ها
+    with t4:
+        st.subheader("🏢 تنظیم ظرفیت هر بخش")
         for w_name, config in st.session_state.wards.items():
             with st.expander(f"تنظیمات {w_name}", expanded=True):
                 cc1, cc2, cc3 = st.columns(3)
@@ -75,8 +90,8 @@ else:
                 st.session_state.wards[w_name]["eve"] = cc2.number_input(f"عصر", 0, 10, config["eve"], key=f"e_{w_name}")
                 st.session_state.wards[w_name]["night"] = cc3.number_input(f"شب", 0, 10, config["night"], key=f"n_{w_name}")
 
-    # تب ۴: تولید و ویرایش دستی
-    with t4:
+    # تب ۵: تولید و ویرایش نهایی
+    with t5:
         days = st.number_input("تعداد روزها:", 1, 31, 30)
         if st.button("🔥 تولید برنامه هوشمند"):
             for s in st.session_state.staff: st.session_state.staff[s]["total_shifts"] = 0
@@ -113,9 +128,7 @@ else:
             st.session_state.final_df = pd.DataFrame(all_schedules)
 
         if st.session_state.final_df is not None:
-            st.subheader("✍️ ویرایش و دانلود")
-            st.info("می‌توانید مستقیماً نام‌ها را در جدول زیر تغییر دهید.")
+            st.subheader("✍️ ویرایش و دانلود نهایی")
             edited_df = st.data_editor(st.session_state.final_df, use_container_width=True)
-            
             csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("📥 دانلود اکسل برنامه نهایی", csv, "Bahar_Hospital_Plan.csv", "text/csv")
+            st.download_button("📥 دانلود اکسل برنامه", csv, "Bahar_Hospital_Plan.csv", "text/csv")
