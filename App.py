@@ -1,92 +1,80 @@
+
 import streamlit as st
 import pandas as pd
 import random
 
-# تنظیمات اصلی برای نمایش بهتر در موبایل
-st.set_page_config(page_title="سامانه هوشمند بهار", layout="wide")
+st.set_page_config(page_title="پنل هوشمند بهار ۱", layout="wide")
 
-# استایل‌دهی اختصاصی برای دکمه‌ها و فونت
-st.markdown("""
-    <style>
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #007BFF; color: white; }
-    .stDataFrame { border: 1px solid #ddd; border-radius: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# استایل‌دهی
+st.markdown("""<style> .stButton>button {width:100%; border-radius:10px; background-color:#17a2b8; color:white;} </style>""", unsafe_allow_html=True)
 
-# سیستم ورود (Login)
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "staff_list" not in st.session_state:
-    st.session_state.staff_list = []
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+if "members" not in st.session_state: st.session_state.members = {} 
 
-def login_page():
-    st.title("🔐 ورود به پنل مدیریت")
-    user = st.text_input("نام کاربری (admin)")
-    pw = st.text_input("رمز عبور (1234)", type="password")
-    if st.button("ورود به سامانه"):
-        if user == "admin" and pw == "1234":
-            st.session_state.authenticated = True
+if not st.session_state.logged_in:
+    st.title("🔑 ورود به سامانه")
+    u = st.text_input("نام کاربری")
+    p = st.text_input("رمز عبور", type="password")
+    if st.button("ورود"):
+        if u == "admin" and p == "1234":
+            st.session_state.logged_in = True
             st.rerun()
-        else:
-            st.error("اطلاعات ورود اشتباه است")
-
-def main_app():
-    st.title("🗓️ سامانه مدیریت شیفت بهار")
-    
-    # استفاده از منوی تب‌بندی شده بزرگ برای موبایل
-    tab1, tab2, tab3 = st.tabs(["👥 افزودن نفرات", "🏖️ مرخصی‌ها", "🚀 چیدمان نهایی"])
-
-    with tab1:
-        st.subheader("لیست پرسنل")
-        new_person = st.text_input("نام همکار را بنویسید:")
-        if st.button("➕ اضافه کردن به لیست"):
-            if new_person and new_person not in st.session_state.staff_list:
-                st.session_state.staff_list.append(new_person)
-                st.success(f"{new_person} اضافه شد")
-            else:
-                st.warning("نام را وارد کنید یا تکراری نباشد")
-        
-        if st.session_state.staff_list:
-            st.write("افراد ثبت شده:")
-            for i, p in enumerate(st.session_state.staff_list):
-                st.text(f"{i+1}. {p}")
-            if st.button("🗑️ پاک کردن کل لیست"):
-                st.session_state.staff_list = []
-                st.rerun()
-
-    with tab2:
-        st.subheader("ثبت محدودیت‌ها")
-        if not st.session_state.staff_list:
-            st.info("ابتدا در تب اول نفرات را اضافه کنید")
-        else:
-            st.write("در این بخش می‌توانید روزهایی که افراد مرخصی هستند را (در آپدیت بعدی) مدیریت کنید.")
-
-    with tab3:
-        st.subheader("تنظیمات شیفت")
-        num_days = st.number_input("تعداد روزهای ماه:", min_value=1, max_value=31, value=30)
-        
-        if st.button("🎲 تولید هوشمند برنامه"):
-            if len(st.session_state.staff_list) < 3:
-                st.error("برای چیدن ۳ شیفت، حداقل به ۳ نفر نیرو نیاز دارید!")
-            else:
-                # منطق چیدمان رندوم عادلانه
-                schedule_data = []
-                staff = st.session_state.staff_list.copy()
-                
-                for d in range(1, num_days + 1):
-                    random.shuffle(staff)
-                    day_shifts = staff[:3] # انتخاب ۳ نفر برای صبح، عصر، شب
-                    schedule_data.append([f"روز {d}", day_shifts[0], day_shifts[1], day_shifts[2]])
-                
-                df = pd.DataFrame(schedule_data, columns=["تاریخ", "صبح", "عصر", "شب"])
-                st.success("برنامه با موفقیت چیده شد!")
-                st.dataframe(df, use_container_width=True)
-                
-                # خروجی اکسل
-                csv = df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 دانلود فایل اکسل برنامه", csv, "shift.csv", "text/csv")
-
-if not st.session_state.authenticated:
-    login_page()
 else:
-    main_app()
+    st.title("🗓️ سامانه هوشمند بهار ۱ (نسخه ارتقا یافته)")
+    
+    t1, t2, t3 = st.tabs(["👥 تعریف پرسنل", "🏖️ مرخصی", "🚀 چیدمان هوشمند"])
+
+    with t1:
+        col1, col2 = st.columns([2, 1])
+        name = col1.text_input("نام همکار:")
+        gender = col2.selectbox("جنسیت:", ["خانم", "آقا"])
+        if st.button("➕ افزودن به لیست"):
+            if name and name not in st.session_state.members:
+                st.session_state.members[name] = {"gender": gender, "offs": []}
+                st.success(f"{name} ({gender}) اضافه شد")
+        
+        if st.session_state.members:
+            st.write("لیست پرسنل:")
+            display_df = pd.DataFrame([{"نام": k, "جنسیت": v["gender"]} for k, v in st.session_state.members.items()])
+            st.table(display_df)
+
+    with t2:
+        if st.session_state.members:
+            person = st.selectbox("انتخاب فرد برای مرخصی:", list(st.session_state.members.keys()))
+            day_off = st.number_input("روز ماه:", 1, 31)
+            if st.button("🚫 ثبت مرخصی"):
+                st.session_state.members[person]["offs"].append(day_off)
+                st.info(f"مرخصی {person} ثبت شد")
+        else: st.info("لیست پرسنل خالی است")
+
+    with t3:
+        days = st.number_input("تعداد روزهای ماه:", 1, 31, 30)
+        if st.button("🔥 اجرای چیدمان با رعایت استراحت"):
+            if len(st.session_state.members) < 4:
+                st.error("برای رعایت قانون استراحت، حداقل به ۴ یا ۵ نفر نیرو نیاز دارید")
+            else:
+                schedule = []
+                last_night_shift = [] # لیست کسانی که دیشب شب‌کار بودند
+                
+                for d in range(1, days + 1):
+                    # ۱. فیلتر مرخصی و ۲. فیلتر استراحت بعد از شب‌کاری
+                    available = [n for n in st.session_state.members if d not in st.session_state.members[n]["offs"] and n not in last_night_shift]
+                    
+                    if len(available) < 3:
+                        schedule.append([f"روز {d}", "❌ کمبود نیرو", "❌ کمبود نیرو", "❌ کمبود نیرو"])
+                        last_night_shift = [] # ریست برای روز بعد
+                    else:
+                        chosen = random.sample(available, 3)
+                        
+                        # نمایش نام با جنسیت در جدول
+                        s_names = [f"{c} ({st.session_state.members[c]['gender']})" for c in chosen]
+                        schedule.append([f"روز {d}", s_names[0], s_names[1], s_names[2]])
+                        
+                        # نفر سوم (شب‌کار) برای روز بعد در لیست استراحت قرار می‌گیرد
+                        last_night_shift = [chosen[2]]
+                
+                df_final = pd.DataFrame(schedule, columns=["تاریخ", "صبح", "عصر", "شب"])
+                st.table(df_final)
+                
+                csv = df_final.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("📥 دانلود خروجی نهایی", csv, "bahar_plan.csv", "text/csv")
